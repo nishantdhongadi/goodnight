@@ -37,6 +37,8 @@ if (( ddc )); then
     # that can drop the link so macOS sees a disconnect and reshuffles windows,
     # and DDC cannot reach a powered-off controller to wake it again.
     m1ddc set pw 4 >/dev/null 2>&1 || print -u2 "goodnight: DDC standby not accepted by the display"
+    # let the display controller process VCP 0xD6 before the DP link drops
+    sleep 1
   else
     print -u2 "goodnight: m1ddc not installed (brew install m1ddc) - skipping DDC"
   fi
