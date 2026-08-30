@@ -1,0 +1,47 @@
+#!/bin/zsh
+# goodnight - end-of-day shutdown for monitor + peripherals.
+#
+#   goodnight            full system sleep (default; cuts USB bus power)
+#   goodnight -d         display sleep only (monitor backlight off, Mac stays up)
+#   goodnight -m         also send DDC standby to the monitor (needs m1ddc)
+#   goodnight -n SECS    countdown before acting (default 5, 0 to skip)
+
+emulate -L zsh
+set -euo pipefail
+
+mode=sleep
+ddc=0
+delay=5
+
+while (( $# )); do
+  case "$1" in
+    -d|--display) mode=display ;;
+    -m|--monitor-off) ddc=1 ;;
+    -n|--delay) shift; delay="${1:?-n needs a number}" ;;
+    -h|--help) sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) print -u2 "goodnight: unknown option $1"; exit 2 ;;
+  esac
+  shift
+done
+
+if (( delay > 0 )); then
+  print -n "Goodnight in "
+  for i in {${delay}..1}; do print -n "$i "; sleep 1; done
+  print ""
+fi
+
+if (( ddc )); then
+  if command -v m1ddc >/dev/null 2>&1; then
+    # VCP 0xD6 = 4 (standby). Deliberately not 5 (hard off): on DisplayPort
+    # that can drop the link so macOS sees a disconnect and reshuffles windows,
+    # and DDC cannot reach a powered-off controller to wake it again.
+    m1ddc set pw 4 >/dev/null 2>&1 || print -u2 "goodnight: DDC standby not accepted by the display"
+  else
+    print -u2 "goodnight: m1ddc not installed (brew install m1ddc) - skipping DDC"
+  fi
+fi
+
+case "$mode" in
+  display) exec pmset displaysleepnow ;;
+  sleep)   exec pmset sleepnow ;;
+esac
